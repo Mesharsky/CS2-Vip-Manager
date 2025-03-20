@@ -30,8 +30,15 @@ You can see the plugin and website presentation here:
 - **Grenades**: Free grenades at round start (HE, flashbang, smoke, molotov, etc.)
 - **Healthshots**: Automatic healthshots at round start
 - **Movement Abilities**: Multi-jump capabilities (double/triple), custom jump height, auto-bhop
-- **Weapon Access**: Special weapons menu access (!guns) **(NOT YET IMPLEMENTED)**
 - **Colored Smoke Grenades**
+- **Infinite Ammo**
+- **Fast Reload**
+- **Kill Screen Effect** – Visual effect when getting a kill.
+- **Advanced Weapon Menu** – Customize your loadout!
+      Players can choose primary & secondary weapons per team.
+      Loadout is saved and automatically given on spawn.
+      Players without a set loadout will be reminded to configure it.
+      Supports delayed loadouts (apply from a specific round).
 
 ### 👥 Player Features
 - **Self-Service**: Players can check their VIP status and benefits
