@@ -187,8 +187,9 @@ public partial class MesharskyVip
             {
                 if (!player.IsValid || !player.PawnIsAlive || player.PlayerPawn.Value == null)
                     return;
-                
-                if (TryGetPlayerWeaponSelection(player, out var selection))
+
+                // PATCH: Do not apply weapon selection on pistol (first) rounds of halves
+                if (!IsPistolRound() && TryGetPlayerWeaponSelection(player, out var selection))
                 {
                     ApplyWeaponSelection(player, selection);
                 }
@@ -390,6 +391,10 @@ public partial class MesharskyVip
     {
         var gameRules = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules;
         if (gameRules == null)
+            return;
+
+        // PATCH: Do not apply weapon selection on pistol (first) rounds of halves (defense in depth)
+        if (IsPistolRound())
             return;
         
         if (gameRules.BuyTimeEnded || 
