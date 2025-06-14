@@ -53,18 +53,22 @@ public partial class MesharskyVip
         var effectiveRound = GetEffectiveRoundNumber();
         var isPistol = IsPistolRound();
 
-        if (hasArmor && effectiveRound >= earliestArmorRound)
+        // Prevent kevlar and helmet on all pistol rounds (first and second half)
+        if (!isPistol) // Only give on non-pistol rounds
         {
-            playerPawn.ArmorValue = 100;
-            Utilities.SetStateChanged(playerPawn, "CCSPlayerPawn", "m_ArmorValue");
-        }
-
-        if (hasHelmet && effectiveRound >= earliestHelmetRound)
-        {
-            if (playerPawn.ItemServices != null)
+            if (hasArmor && effectiveRound >= earliestArmorRound)
             {
-                new CCSPlayer_ItemServices(playerPawn.ItemServices.Handle).HasHelmet = true;
-                Utilities.SetStateChanged(playerPawn, "CCSPlayer_ItemServices", "m_bHasHelmet");
+                playerPawn.ArmorValue = 100;
+                Utilities.SetStateChanged(playerPawn, "CCSPlayerPawn", "m_ArmorValue");
+            }
+
+            if (hasHelmet && effectiveRound >= earliestHelmetRound)
+            {
+                if (playerPawn.ItemServices != null)
+                {
+                    new CCSPlayer_ItemServices(playerPawn.ItemServices.Handle).HasHelmet = true;
+                    Utilities.SetStateChanged(playerPawn, "CCSPlayer_ItemServices", "m_bHasHelmet");
+                }
             }
         }
         
