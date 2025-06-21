@@ -21,6 +21,7 @@ public partial class MesharskyVip
         public required string Database { get; set; }
         public required string Password { get; set; }
         public int Port { get; set; }
+        public string TablePrefix { get; set; } = "";
     }
 
     public class PluginSettingsConfig

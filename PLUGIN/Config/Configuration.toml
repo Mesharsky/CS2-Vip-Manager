@@ -7,6 +7,7 @@ username = ""  # MySQL user
 database = ""  # Database name
 password = ""  # MySQL password
 port = 3306    # Default MySQL port
+table_prefix = "" # Leave empty for no prefix
 
 ######################################
 #     General Plugin Settings        #

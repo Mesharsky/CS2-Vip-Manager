@@ -22,7 +22,8 @@ public partial class MesharskyVip
             Username = dbTable["username"].ToString(),
             Database = dbTable["database"].ToString(),
             Password = dbTable["password"].ToString(),
-            Port = int.Parse(dbTable["port"].ToString())
+            Port = int.Parse(dbTable["port"].ToString()),
+            TablePrefix = dbTable["table_prefix"].ToString()
         };
 
         var pluginTable = (TomlTable)model["PluginSettings"];
@@ -251,6 +252,10 @@ public partial class MesharskyVip
             NightVip = nightVipConfig,
             VipTest = vipTestConfig
         };
+
+
+        
+
     }
     
     private WeaponMenuConfig ParseWeaponMenuConfig(TomlTable group)
@@ -310,4 +315,6 @@ public partial class MesharskyVip
         
         return weaponMenuConfig;
     }
+
+
 }

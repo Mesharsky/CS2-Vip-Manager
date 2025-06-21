@@ -9,7 +9,11 @@ public partial class MesharskyVip
     {
         DB_LoadConnectionString();
         DB_CreateTables();
+        CreateWeaponPreferencesTable();
         DB_CreateVipTestTable();
+        DB_SyncGroups();
     }
+
+
 }
 

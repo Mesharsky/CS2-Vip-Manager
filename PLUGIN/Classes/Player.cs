@@ -69,8 +69,9 @@ public partial class MesharskyVip
         
         using var connection = new MySqlConnection(_connectionString);
         
+        var tablePrefix = Config!.DatabaseConnection.TablePrefix;
         var groups = connection.Query<PlayerGroup>(
-            "SELECT group_name AS GroupName, name AS PlayerName, expires AS ExpiryTime FROM player_groups WHERE steamid64 = @SteamID",
+            $"SELECT group_name AS GroupName, name AS PlayerName, expires AS ExpiryTime FROM {tablePrefix}player_groups WHERE steamid64 = @SteamID",
             new { SteamID = steamId }
         ).ToList();
         
@@ -92,7 +93,7 @@ public partial class MesharskyVip
                     group.PlayerName = playerName;
                     
                     connection.Execute(
-                        "UPDATE player_groups SET name = @Name WHERE steamid64 = @SteamID AND group_name = @GroupName",
+                        $"UPDATE {tablePrefix}player_groups SET name = @Name WHERE steamid64 = @SteamID AND group_name = @GroupName",
                         new { Name = playerName, SteamID = steamId, GroupName = group.GroupName }
                     );
                 }
@@ -130,8 +131,9 @@ public partial class MesharskyVip
     {
         using var connection = new MySqlConnection(_connectionString);
         
+        var tablePrefix = Config!.DatabaseConnection.TablePrefix;
         connection.Execute(
-            "UPDATE player_groups SET name = @Name WHERE steamid64 = @SteamID",
+            $"UPDATE {tablePrefix}player_groups SET name = @Name WHERE steamid64 = @SteamID",
             new { Name = playerName, SteamID = steamId }
         );
     }
@@ -142,13 +144,14 @@ public partial class MesharskyVip
 
         using var connection = new MySqlConnection(_connectionString);
     
+        var tablePrefix = Config!.DatabaseConnection.TablePrefix;
         foreach (var group in from @group in player.Groups let isNightVipGroup = Config!.NightVip.Enabled && 
                      @group.GroupName == Config.NightVip.InheritGroup && 
                      @group.ExpiryTime == 0 && 
                      IsNightVipTime() where !isNightVipGroup select @group)
         {
             connection.Execute(
-                "INSERT INTO player_groups (steamid64, group_name, name, expires) " +
+                $"INSERT INTO {tablePrefix}player_groups (steamid64, group_name, name, expires) " +
                 "VALUES (@SteamID, @GroupName, @Name, @ExpiryTime) " +
                 "ON DUPLICATE KEY UPDATE expires = @ExpiryTime, name = @Name",
                 new { 
@@ -209,8 +212,9 @@ public partial class MesharskyVip
         if (groupToRemove == null) return;
         
         using var connection = new MySqlConnection(_connectionString);
+        var tablePrefix = Config!.DatabaseConnection.TablePrefix;
         connection.Execute(
-            "DELETE FROM player_groups WHERE steamid64 = @SteamID AND group_name = @GroupName",
+            $"DELETE FROM {tablePrefix}player_groups WHERE steamid64 = @SteamID AND group_name = @GroupName",
             new { SteamID = steamId, GroupName = groupName }
         );
         

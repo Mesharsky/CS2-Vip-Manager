@@ -31,8 +31,9 @@ public partial class MesharskyVip
                 // Ignore - table doesn't exist
             }
             
-            const string createPlayerGroupsTableSql = @"
-                CREATE TABLE IF NOT EXISTS player_groups (
+            var tablePrefix = Config!.DatabaseConnection.TablePrefix;
+            var createPlayerGroupsTableSql = $@"
+                CREATE TABLE IF NOT EXISTS {tablePrefix}player_groups (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     steamid64 BIGINT NOT NULL,
                     group_name VARCHAR(50) NOT NULL,
@@ -66,8 +67,9 @@ public partial class MesharskyVip
             using var connection = new MySqlConnection(_connectionString);
             connection.Open();
             
-            const string createTableSql = @"
-                CREATE TABLE IF NOT EXISTS vip_weapon_preferences (
+            var tablePrefix = Config!.DatabaseConnection.TablePrefix;
+            var createTableSql = $@"
+                CREATE TABLE IF NOT EXISTS {tablePrefix}vip_weapon_preferences (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     steamid64 BIGINT NOT NULL,
                     team_num INT NOT NULL,
@@ -99,13 +101,13 @@ public partial class MesharskyVip
                     
             using var connection = new MySqlConnection(_connectionString);
             connection.Open();
-            
+            var tablePrefix = Config!.DatabaseConnection.TablePrefix;
             using var transaction = connection.BeginTransaction();
             
             try
             {
                 connection.Execute(
-                    "DELETE FROM vip_weapon_preferences WHERE steamid64 = @SteamID",
+                    $"DELETE FROM {tablePrefix}vip_weapon_preferences WHERE steamid64 = @SteamID",
                     new { player.SteamID },
                     transaction
                 );
@@ -116,7 +118,7 @@ public partial class MesharskyVip
                         continue;
                         
                     connection.Execute(
-                        @"INSERT INTO vip_weapon_preferences 
+                        $@"INSERT INTO {tablePrefix}vip_weapon_preferences 
                         (steamid64, team_num, primary_weapon, secondary_weapon, last_updated) 
                         VALUES (@SteamID, @TeamNum, @PrimaryWeapon, @SecondaryWeapon, @LastUpdated)",
                         new {
@@ -157,9 +159,9 @@ public partial class MesharskyVip
                     
             using var connection = new MySqlConnection(_connectionString);
             connection.Open();
-            
+            var tablePrefix = Config!.DatabaseConnection.TablePrefix;
             var preferences = connection.Query<dynamic>(
-                "SELECT * FROM vip_weapon_preferences WHERE steamid64 = @SteamID",
+                $"SELECT * FROM {tablePrefix}vip_weapon_preferences WHERE steamid64 = @SteamID",
                 new { player.SteamID }
             ).ToList();
             
@@ -192,9 +194,9 @@ public partial class MesharskyVip
         try
         {
             using var connection = new MySqlConnection(_connectionString);
-            
+            var tablePrefix = Config!.DatabaseConnection.TablePrefix;
             connection.Execute(
-                "DELETE FROM vip_weapon_preferences WHERE steamid64 = @SteamID AND team_num = @TeamNum",
+                $"DELETE FROM {tablePrefix}vip_weapon_preferences WHERE steamid64 = @SteamID AND team_num = @TeamNum",
                 new { SteamID = steamId, TeamNum = teamNum }
             );
         }
@@ -211,8 +213,9 @@ public partial class MesharskyVip
         {
             connection.Open();
             
-            const string createVipTestTableSql = @"
-                CREATE TABLE IF NOT EXISTS vip_test_history (
+            var tablePrefix = Config!.DatabaseConnection.TablePrefix;
+            var createVipTestTableSql = $@"
+                CREATE TABLE IF NOT EXISTS {tablePrefix}vip_test_history (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     steamid64 BIGINT NOT NULL,
                     name VARCHAR(255) NOT NULL,
@@ -231,14 +234,16 @@ public partial class MesharskyVip
     
     private static void MigrateExistingData(MySqlConnection connection)
     {
+        var tablePrefix = Config!.DatabaseConnection.TablePrefix;
         try
         {
-            var playerGroupsCount = connection.ExecuteScalar<int>("SELECT COUNT(*) FROM player_groups");
+          
+            var playerGroupsCount = connection.ExecuteScalar<int>($"SELECT COUNT(*) FROM {tablePrefix}player_groups");
             
             var playersCount = 0;
             try
             {
-                playersCount = connection.ExecuteScalar<int>("SELECT COUNT(*) FROM players");
+                playersCount = connection.ExecuteScalar<int>($"SELECT COUNT(*) FROM players");
             }
             catch (Exception)
             {
@@ -250,8 +255,8 @@ public partial class MesharskyVip
             
             try
             {
-                const string migrateSql = @"
-                    INSERT INTO player_groups (steamid64, group_name, name, expires)
+                var migrateSql = $@"
+                    INSERT INTO {tablePrefix}player_groups (steamid64, group_name, name, expires)
                     SELECT steamid64, `group`, name, expires FROM players
                     WHERE `group` != 'None' AND `group` != ''
                 ";
@@ -279,8 +284,9 @@ public partial class MesharskyVip
         {
             // If cooldown is 0 (forever), just check if they've ever used it
             using var connection = new MySqlConnection(_connectionString);
+            var tablePrefix = Config!.DatabaseConnection.TablePrefix;
             var count = connection.ExecuteScalar<int>(
-                "SELECT COUNT(*) FROM vip_test_history WHERE steamid64 = @SteamID",
+                $"SELECT COUNT(*) FROM {tablePrefix}vip_test_history WHERE steamid64 = @SteamID",
                 new { SteamID = steamId }
             );
             
@@ -290,8 +296,9 @@ public partial class MesharskyVip
         {
             // Check if they've used it within the cooldown period
             using var connection = new MySqlConnection(_connectionString);
+            var tablePrefix = Config!.DatabaseConnection.TablePrefix;
             var lastTestDate = connection.ExecuteScalar<int?>(
-                "SELECT last_test_date FROM vip_test_history WHERE steamid64 = @SteamID",
+                $"SELECT last_test_date FROM {tablePrefix}vip_test_history WHERE steamid64 = @SteamID",
                 new { SteamID = steamId }
             );
             
@@ -308,8 +315,9 @@ public partial class MesharskyVip
     private static int GetRemainingCooldownDays(ulong steamId)
     {
         using var connection = new MySqlConnection(_connectionString);
+        var tablePrefix = Config!.DatabaseConnection.TablePrefix;
         var lastTestDate = connection.ExecuteScalar<int?>(
-            "SELECT last_test_date FROM vip_test_history WHERE steamid64 = @SteamID",
+            $"SELECT last_test_date FROM {tablePrefix}vip_test_history WHERE steamid64 = @SteamID",
             new { SteamID = steamId }
         );
         
@@ -330,12 +338,69 @@ public partial class MesharskyVip
     {
         using var connection = new MySqlConnection(_connectionString);
         var currentTime = (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        
+        var tablePrefix = Config!.DatabaseConnection.TablePrefix;
         connection.Execute(
-            "INSERT INTO vip_test_history (steamid64, name, last_test_date) " +
+            $"INSERT INTO {tablePrefix}vip_test_history (steamid64, name, last_test_date) " +
             "VALUES (@SteamID, @Name, @Date) " +
             "ON DUPLICATE KEY UPDATE name = @Name, last_test_date = @Date",
             new { SteamID = steamId, Name = playerName, Date = currentTime }
         );
     }
+
+    private static void DB_SyncGroups()
+    {
+        var tablePrefix = Config!.DatabaseConnection.TablePrefix;
+        var tableString = $@"CREATE TABLE IF NOT EXISTS {tablePrefix}vip_groups (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(50) NOT NULL UNIQUE,
+            flag VARCHAR(50) NOT NULL,
+            description TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )";
+
+        using var connection = new MySqlConnection(_connectionString);
+        connection.Execute(tableString);
+
+        // Get existing group names in one query
+        var existingGroupNames = connection.Query<string>($"SELECT name FROM {tablePrefix}vip_groups").ToHashSet();
+        var configGroupNames = Config!.GroupSettings.Select(g => g.Name).ToHashSet();
+
+        // Batch UPSERT all config groups in one query
+        if (Config.GroupSettings.Count > 0)
+        {
+            var groupData = Config.GroupSettings.Select(g => new { 
+                Name = g.Name, 
+                Flag = g.Flag, 
+                Description = ""
+            }).ToList();
+
+            connection.Execute(
+                $@"INSERT INTO {tablePrefix}vip_groups (name, flag, description) 
+                  VALUES (@Name, @Flag, @Description)
+                  ON DUPLICATE KEY UPDATE flag = VALUES(flag), description = VALUES(description)",
+                groupData
+            );
+            Console.WriteLine($"[Mesharsky - VIP] Synced {groupData.Count} groups to database");
+        }
+
+        // Remove groups that don't exist in config (batch operation)
+        var groupsToRemove = existingGroupNames.Except(configGroupNames).ToList();
+        
+        if (groupsToRemove.Count > 0)
+        {
+            // Batch delete groups that don't exist in config
+            var deletePlaceholders = string.Join(",", groupsToRemove.Select((_, i) => $"@del{i}"));
+            var deleteParams = groupsToRemove.Select((name, i) => new { Key = $"@del{i}", Value = name })
+                                          .ToDictionary(x => x.Key, x => (object)x.Value);
+            
+            var removedCount = connection.Execute(
+                $"DELETE FROM {tablePrefix}vip_groups WHERE name IN ({deletePlaceholders})",
+                deleteParams
+            );
+            Console.WriteLine($"[Mesharsky - VIP] Removed {removedCount} groups from database (not in config)");
+        }
+        
+        Console.WriteLine($"[Mesharsky - VIP] Group synchronization complete");
+    }
+
 }
