@@ -1,4 +1,4 @@
-﻿using CounterStrikeSharp.API;
+using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Commands;
@@ -25,7 +25,14 @@ public partial class MesharskyVip
         
         Console.WriteLine("[Mesharsky - VIP] Weapon menu feature initialized");
     }
+private static string GetWeaponDisplayName(string weaponName)
+{
+    if (string.IsNullOrEmpty(weaponName))
+        return "Unknown";
 
+    var name = weaponName.Replace("weapon_", "");
+    return char.ToUpper(name[0]) + name.Substring(1);
+}
     private HookResult OnPlayerConnectFullWeaponMenu(EventPlayerConnectFull @event, GameEventInfo info)
     {
         var player = @event.Userid;
@@ -168,44 +175,45 @@ public partial class MesharskyVip
         ChatHelper.PrintLocalizedChat(player, _localizer!, true, "commands.weaponsmenu.reset");
     }
     
-    private HookResult OnPlayerSpawnWeaponMenu(EventPlayerSpawn @event, GameEventInfo info)
-    {
-        if (IsWarmup())
-            return HookResult.Continue;
-            
-        var player = @event.Userid;
-        
-        if (player == null || !player.IsValid || player.IsBot || player.TeamNum < 2)
-            return HookResult.Continue;
-            
-        if (!CanUseWeaponMenu(player))
-            return HookResult.Continue;
-        
-        Server.NextFrame(() => 
-        {
-            AddTimer(0.5f, () => 
-            {
-                if (!player.IsValid || !player.PawnIsAlive || player.PlayerPawn.Value == null)
-                    return;
-
-                // PATCH: Do not apply weapon selection on pistol (first) rounds of halves
-                if (!IsPistolRound() && TryGetPlayerWeaponSelection(player, out var selection))
-                {
-                    ApplyWeaponSelection(player, selection);
-                }
-                else
-                {
-                    var config = GetPlayerWeaponMenuConfig(player);
-                    if (config != null && GetEffectiveRoundNumber() >= config.MinRound)
-                    {
-                        ChatHelper.PrintLocalizedChat(player, _localizer!, true, "commands.weaponsmenu.notconfigured");
-                    }
-                }
-            });
-        });
-        
+   private HookResult OnPlayerSpawnWeaponMenu(EventPlayerSpawn @event, GameEventInfo info)
+{
+    if (IsWarmup())
         return HookResult.Continue;
-    }
+        
+    var player = @event.Userid;
+    
+    if (player == null || !player.IsValid || player.IsBot || player.TeamNum < 2)
+        return HookResult.Continue;
+        
+    if (!CanUseWeaponMenu(player))
+        return HookResult.Continue;
+
+    Server.NextFrame(() =>
+    {
+        AddTimer(0.5f, () =>
+        {
+            if (!player.IsValid || !player.PawnIsAlive || player.PlayerPawn.Value == null)
+                return;
+
+            if (TryGetPlayerWeaponSelection(player, out var selection))
+            {
+                Console.WriteLine($"[VIP] Applying weapons for {player.PlayerName}: {selection.PrimaryWeapon}/{selection.SecondaryWeapon}");
+                ApplyWeaponSelection(player, selection);
+            }
+            else
+            {
+                Console.WriteLine($"[VIP] No weapon selection found for {player.PlayerName} (team {player.TeamNum})");
+                var config = GetPlayerWeaponMenuConfig(player);
+                if (config != null && GetEffectiveRoundNumber() >= config.MinRound)
+                {
+                    ChatHelper.PrintLocalizedChat(player, _localizer!, true, "commands.weaponsmenu.notconfigured");
+                }
+            }
+        });
+    });
+    
+    return HookResult.Continue;
+}
     
     private static bool CanUseWeaponMenu(CCSPlayerController player)
     {
@@ -387,38 +395,34 @@ public partial class MesharskyVip
         }
     }
     
-    private static void ApplyWeaponSelection(CCSPlayerController player, PlayerWeaponSelection selection)
-    {
-        var gameRules = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules;
-        if (gameRules == null)
-            return;
+private void ApplyWeaponSelection(CCSPlayerController player, PlayerWeaponSelection selection)
+{
+    if (player?.PlayerPawn?.Value == null || !player.PawnIsAlive)
+        return;
 
-        // PATCH: Do not apply weapon selection on pistol (first) rounds of halves (defense in depth)
-        if (IsPistolRound())
-            return;
-        
-        if (gameRules.BuyTimeEnded || 
-            player.PlayerPawn.Value == null || 
-            !player.PlayerPawn.Value.InBuyZone)
-            return;
-        
-        var config = GetPlayerWeaponMenuConfig(player);
-        if (config == null || GetEffectiveRoundNumber() < config.MinRound)
-            return;
-        
-        RemoveWeapons(player);
-        
+    var config = GetPlayerWeaponMenuConfig(player);
+    if (config == null || GetEffectiveRoundNumber() < config.MinRound)
+        return;
+
+    RemoveWeapons(player);
+
+    AddTimer(0.2f, () =>
+    {
+        if (!player.IsValid || !player.PawnIsAlive) return;
+
         if (!string.IsNullOrEmpty(selection.PrimaryWeapon))
         {
+            Console.WriteLine($"[VIP] Giving primary {selection.PrimaryWeapon} to {player.PlayerName}");
             player.GiveNamedItem(selection.PrimaryWeapon);
         }
-        
+
         if (!string.IsNullOrEmpty(selection.SecondaryWeapon))
         {
+            Console.WriteLine($"[VIP] Giving secondary {selection.SecondaryWeapon} to {player.PlayerName}");
             player.GiveNamedItem(selection.SecondaryWeapon);
         }
-    }
-
+    });
+}
     private static bool TryGetTeamWeaponSelection(CCSPlayerController player, int teamNum, out PlayerWeaponSelection selection)
     {
         selection = null!;
@@ -439,55 +443,48 @@ public partial class MesharskyVip
         return cachedPlayer.WeaponSelections.TryGetValue(player.TeamNum, out selection!);
     }
 
-    private static void RemoveTeamWeaponSelection(CCSPlayerController player, int teamNum)
-    {
-        if (!PlayerCache.TryGetValue(player.SteamID, out var cachedPlayer)) 
-            return;
-            
-        if (cachedPlayer.WeaponSelections.TryGetValue(teamNum, out _))
-        {
-            var steamId = player.SteamID;
-            Server.NextFrame(() => {
-                Task.Run(() => DeleteWeaponPreferencesFromDb(steamId, teamNum));
-            });
-            
-            cachedPlayer.WeaponSelections.Remove(teamNum);
-        }
-    }
-    
-    // Snippet used from daffy module for VIP CORE specially: AddEntityIOEvent call.
-    private static void RemoveWeapons(CCSPlayerController player)
-    {
-        if (player.PlayerPawn.Value?.WeaponServices == null || player.PlayerPawn.Value?.ItemServices == null)
-            return;
-
-        var weapons = player.PlayerPawn.Value.WeaponServices.MyWeapons.ToList();
-
-        if (weapons.Count == 0)
-            return;
-
-        foreach (var weapon in weapons)
-        {
-            if (!weapon.IsValid || weapon.Value == null ||
-                !weapon.Value.IsValid)
-                continue;
-
-            if (weapon.Value.Entity == null) continue;
-            if (!weapon.Value.VisibleinPVS) continue;
-
-            var weaponData = weapon.Value.As<CCSWeaponBase>().VData;
-
-            if (weaponData?.GearSlot is gear_slot_t.GEAR_SLOT_RIFLE or gear_slot_t.GEAR_SLOT_PISTOL)
-            {
-                weapon.Value?.AddEntityIOEvent("Kill", weapon.Value, null, "", 0.12f);
-            }
-        }
-    }
-    
-    private static string GetWeaponDisplayName(string weaponName)
-    {
-        var name = weaponName.Replace("weapon_", "");
+private static void RemoveTeamWeaponSelection(CCSPlayerController player, int teamNum)
+{
+    if (!PlayerCache.TryGetValue(player.SteamID, out var cachedPlayer)) 
+        return;
         
-        return char.ToUpper(name[0]) + name.Substring(1);
+    if (cachedPlayer.WeaponSelections.TryGetValue(teamNum, out _))
+    {
+        var steamId = player.SteamID;
+        Server.NextFrame(() =>
+        {
+            Task.Run(() => DeleteWeaponPreferencesFromDb(steamId, teamNum));
+        });
+        
+        cachedPlayer.WeaponSelections.Remove(teamNum);
     }
-}
+} 
+
+private static void RemoveWeapons(CCSPlayerController player)
+{
+    if (player.PlayerPawn.Value?.WeaponServices == null || player.PlayerPawn.Value?.ItemServices == null)
+        return;
+
+    var weapons = player.PlayerPawn.Value.WeaponServices.MyWeapons.ToList();
+
+    if (weapons.Count == 0)
+        return;
+
+    foreach (var weapon in weapons)
+    {
+        if (!weapon.IsValid || weapon.Value == null || !weapon.Value.IsValid)
+            continue;
+
+        if (weapon.Value.Entity == null) 
+            continue;
+
+        var weaponData = weapon.Value.As<CCSWeaponBase>().VData;
+
+        if (weaponData?.GearSlot is gear_slot_t.GEAR_SLOT_RIFLE or gear_slot_t.GEAR_SLOT_PISTOL)
+        {
+            weapon.Value?.AddEntityIOEvent("Kill", weapon.Value, null, "", 0.12f);
+        }
+    }
+} 
+
+} 
